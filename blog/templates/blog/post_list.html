@@ -1,0 +1,7 @@
+{% extends 'blog/base.html' %}
+{% block body_class %}home{% endblock %}
+{% block content %}
+<div class="cards" id="cardGrid">
+    {% include 'blog/_post_cards.html' %}
+</div>
+{% endblock %}

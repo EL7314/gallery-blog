@@ -1,0 +1,162 @@
+{% extends 'blog/base.html' %}
+{% block title %}{{ post.title }}{% endblock %}
+{% block topbar_extra %}
+{% if user.is_authenticated %}
+<a href="{% url 'blog:post_edit' post.slug %}" style="font-size:13px;color:var(--muted);">编辑</a>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="detail">
+
+    <a href="{% url 'blog:index' %}" class="back-link">← 返回</a>
+    <h1>{{ post.title }}</h1>
+    <p class="meta">{% if post.category %}{{ post.category.name }} · {% endif %}{{ post.created_at|date:'Y-m-d' }}</p>
+
+    <!-- Cover image -->
+    {% with cover=post.images.all %}
+    {% for img in cover %}{% if img.is_cover %}
+    <div class="cover-area">
+        <figure class="block-img"><img src="{{ img.image.url }}" alt="{{ img.caption }}" style="width:100%;max-height:500px;object-fit:contain;"><figcaption>{{ img.caption }}</figcaption></figure>
+    </div>
+    {% endif %}{% endfor %}
+    {% endwith %}
+
+    <!-- Blocks -->
+    <div class="body">
+        {% for blk in post.blocks.all %}
+            {% if blk.block_type == 'text' %}
+                <div class="block-render" data-type="text" data-layout="full">
+                    {% if blk.subtitle %}<h3 class="block-subtitle">{{ blk.subtitle }}</h3>{% endif %}
+                    <div class="block-text">{{ blk.content|linebreaks }}</div>
+                </div>
+            {% elif blk.block_type == 'image' and blk.image %}
+                <div class="block-render" data-type="image" data-layout="{% if blk.content %}{{ blk.layout }}{% else %}full{% endif %}">
+                    {% if blk.layout == 'top-bottom' %}
+                        <figure class="block-img"><img src="{{ blk.image.image.url }}" alt="{{ blk.image.caption }}"><figcaption>{{ blk.image.caption }}</figcaption></figure>
+                        {% if blk.content %}<div class="block-text">{{ blk.content|linebreaks }}</div>{% endif %}
+                    {% elif blk.layout == 'bottom-top' %}
+                        {% if blk.content %}<div class="block-text">{{ blk.content|linebreaks }}</div>{% endif %}
+                        <figure class="block-img"><img src="{{ blk.image.image.url }}" alt="{{ blk.image.caption }}"><figcaption>{{ blk.image.caption }}</figcaption></figure>
+                    {% elif blk.layout == 'left-right' %}
+                        <figure class="block-img"><img src="{{ blk.image.image.url }}" alt="{{ blk.image.caption }}"><figcaption>{{ blk.image.caption }}</figcaption></figure>
+                        {% if blk.content %}<div class="block-text">{{ blk.content|linebreaks }}</div>{% endif %}
+                    {% elif blk.layout == 'right-left' %}
+                        {% if blk.content %}<div class="block-text">{{ blk.content|linebreaks }}</div>{% endif %}
+                        <figure class="block-img"><img src="{{ blk.image.image.url }}" alt="{{ blk.image.caption }}"><figcaption>{{ blk.image.caption }}</figcaption></figure>
+                    {% elif blk.layout == 'float-left' %}
+                        <figure class="block-img block-img-float"><img src="{{ blk.image.image.url }}" alt="{{ blk.image.caption }}"><figcaption>{{ blk.image.caption }}</figcaption></figure>
+                        {% if blk.content %}<div class="block-text">{{ blk.content|linebreaks }}</div>{% endif %}
+                    {% else %}
+                        <!-- full: just image -->
+                        <figure class="block-img"><img src="{{ blk.image.image.url }}" alt="{{ blk.image.caption }}"><figcaption>{{ blk.image.caption }}</figcaption></figure>
+                        {% if blk.content %}<div class="block-text">{{ blk.content|linebreaks }}</div>{% endif %}
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+
+        {% if not post.blocks.exists and post.content %}
+            <div class="block-render" data-type="text">
+                {{ post.content|linebreaks }}
+            </div>
+        {% endif %}
+
+        <!-- Fallback: show images if no blocks -->
+        {% if not post.blocks.exists %}
+            {% for img in post.images.all %}
+            <div class="block-render" data-type="image" data-layout="full">
+                <figure class="block-img">
+                    <img src="{{ img.image.url }}" alt="{{ img.caption }}">
+                    {% if img.caption %}<figcaption>{{ img.caption }}</figcaption>{% endif %}
+                </figure>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {% if user.is_authenticated %}
+    <div class="admin-links">
+        <a href="{% url 'blog:post_edit' post.slug %}">编辑</a>
+        <form method="post" action="{% url 'blog:post_delete' post.slug %}" style="display:inline;" onsubmit="return confirm('确认删除?');">
+            {% csrf_token %}
+            <button type="submit" class="link-danger">删除</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    /* Block render styles */
+    .block-render {
+        margin-bottom: 28px;
+    }
+    .block-render .block-img {
+        margin: 0;
+    }
+    .block-render .block-img img {
+        max-width: 100%; border-radius: 4px; display: block;
+    }
+    .block-render .block-img figcaption {
+        text-align: center; color: var(--muted); font-size: 13px; margin-top: 6px;
+    }
+    .block-render .block-text p {
+        margin-bottom: 12px; line-height: 1.9;
+        overflow-wrap: break-word; word-break: break-word;
+    }
+    .block-render .block-text {
+        overflow-wrap: break-word; word-break: break-word;
+    }
+    .block-render .block-subtitle {
+        font-size: 1.15rem; font-weight: 600; margin-bottom: 10px;
+        color: var(--panel-fg); padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    }
+
+    /* Layout: left-right */
+    .block-render[data-layout="left-right"] {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;
+    }
+    .block-render[data-layout="left-right"] .block-img { grid-column: 1; }
+    .block-render[data-layout="left-right"] .block-text { grid-column: 2; }
+
+    /* Layout: right-left */
+    .block-render[data-layout="right-left"] {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;
+    }
+    .block-render[data-layout="right-left"] .block-img { grid-column: 2; }
+    .block-render[data-layout="right-left"] .block-text { grid-column: 1; }
+
+    /* Layout: top-bottom */
+    .block-render[data-layout="top-bottom"] {
+        display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* Layout: bottom-top */
+    .block-render[data-layout="bottom-top"] {
+        display: flex; flex-direction: column; gap: 16px;
+    }
+    .block-render[data-layout="bottom-top"] .block-img { order: 2; }
+    .block-render[data-layout="bottom-top"] .block-text { order: 1; }
+
+    /* Layout: float-left */
+    .block-render[data-layout="float-left"] { display: block; }
+    .block-render[data-layout="float-left"] .block-img-float {
+        float: left; width: 45%; margin: 0 24px 16px 0;
+    }
+    .block-render[data-layout="float-left"] .block-text { overflow: hidden; }
+
+    /* Layout: full */
+    .block-render[data-layout="full"] {
+        display: flex; flex-direction: column; gap: 16px;
+    }
+
+    @media (max-width: 640px) {
+        .block-render[data-layout="left-right"],
+        .block-render[data-layout="right-left"] {
+            grid-template-columns: 1fr;
+        }
+        .block-render[data-layout="float-left"] .block-img-float {
+            float: none; width: 100%; margin-right: 0;
+        }
+    }
+</style>
+{% endblock %}

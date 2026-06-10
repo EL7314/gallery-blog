@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-cn" data-theme="light" data-font="medium">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gallery{% endblock %}</title>
+    <style>
+        /* ── Light ── */
+        :root {
+            --body-bg: #f5f5f5;
+            --panel-bg: #fff;
+            --panel-fg: #111;
+            --muted: #888; --muted2: #aaa;
+            --border: #ddd;
+            --card-shadow: rgba(0,0,0,.08);
+            --overlay: rgba(255,255,255,0.85);
+            --hover-bg: #f0f0f0;
+            --active-bg: #111;
+            --active-fg: #fff;
+            --input-bg: #fff;
+            --float-bg: #111;
+            --float-fg: #fff;
+            --sidebar-w: 280px;
+        }
+        [data-theme="dark"] {
+            --body-bg: #111;
+            --panel-bg: #1e1e1e;
+            --panel-fg: #e0e0e0;
+            --muted: #888; --muted2: #666;
+            --border: #333;
+            --card-shadow: rgba(0,0,0,.4);
+            --overlay: rgba(0,0,0,0.7);
+            --hover-bg: #2a2a2a;
+            --active-bg: #fff; --active-fg: #111;
+            --input-bg: #2a2a2a;
+            --float-bg: #fff; --float-fg: #111;
+        }
+        html[data-font="small"]  { font-size: 13px; }
+        html[data-font="medium"]{ font-size: 15px; }
+        html[data-font="large"] { font-size: 17px; }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--body-bg); color: var(--panel-fg); font-size: 1rem; transition: background .3s, color .3s; }
+        a { color: var(--panel-fg); text-decoration: none; }
+
+        .layout {
+            display: flex; min-height: 100vh; position: relative;
+            {% if setting.background_image %}
+            background: url('{{ setting.background_image.url }}') center/cover fixed;
+            {% endif %}
+        }
+        .layout::before { content: ''; position: absolute; inset: 0; background: var(--overlay); pointer-events: none; z-index: 0; transition: background .3s; }
+        .main-panel { flex: 1; min-width: 0; position: relative; z-index: 1; display: flex; flex-direction: column; }
+        .sidebar { width: var(--sidebar-w); flex-shrink: 0; background: transparent; position: sticky; top: 0; height: 100vh; z-index: 1; display: flex; flex-direction: column; overflow-y: auto; }
+
+        .content-area { flex: 1; overflow-y: auto; position: relative; }
+        .content-inner { padding: 24px; }
+
+
+        .topbar { display: flex; align-items: center; gap: 16px; padding: 10px 24px; background: transparent; }
+        .topbar .brand { font-weight: 700; font-size: 16px; flex-shrink: 0; }
+        .topbar .spacer { flex: 1; }
+        .topbar a { font-size: 13px; color: var(--muted); }
+        .topbar a:hover { color: var(--panel-fg); }
+        .topbar .search-box { position: relative; flex-shrink: 0; }
+        .topbar .search-box input { padding: 6px 32px 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; background: var(--input-bg); color: var(--panel-fg); width: 180px; transition: width .2s; }
+        .topbar .search-box input:focus { outline: none; width: 220px; border-color: #888; }
+        .topbar .search-box .search-icon { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); pointer-events: none; }
+
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+        .card { background: var(--panel-bg); border-radius: 6px; overflow: hidden; display: block; transition: box-shadow .15s; }
+        .card:hover { box-shadow: 0 2px 12px var(--card-shadow); }
+        .card-wrapper:hover .card-delete-btn { display: flex !important; }
+        .card-delete-btn:hover { background: #e55 !important; }
+        .card.dragging { opacity: 0.5; }
+        .card .card-img { aspect-ratio: 16/10; overflow: hidden; background: var(--hover-bg); }
+        .card .card-img img { width: 100%; height: 100%; object-fit: cover; }
+        .card .card-body { padding: 14px; }
+        .card .card-body h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; color: var(--panel-fg); }
+        .card .card-excerpt { font-size: 0.85rem; color: var(--muted); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 8px; }
+        .card .card-cat { font-size: 0.8rem; color: var(--muted); }
+        .empty { grid-column: 1/-1; text-align: center; color: var(--muted); padding: 60px 20px; }
+
+        .detail { max-width: 760px; padding: 30px 20px 60px; }
+        .detail .back-link { font-size: 13px; color: var(--muted); display: inline-block; margin-bottom: 16px; }
+        .detail h1 { font-size: 1.7rem; margin-bottom: 8px; }
+        .detail .meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .detail .body { font-size: 1rem; line-height: 2; overflow-wrap: break-word; word-break: break-word; }
+        .detail .body p { margin-bottom: 16px; overflow-wrap: break-word; word-break: break-word; }
+        .detail figure { margin: 24px 0; }
+        .detail figure img { width: 100%; border-radius: 4px; }
+        .detail figure figcaption { text-align: center; color: var(--muted); font-size: 13px; margin-top: 6px; }
+        .admin-links { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 16px; }
+        .admin-links a, .link-danger { font-size: 13px; background: none; border: none; cursor: pointer; }
+        .link-danger { color: #e55; }
+
+        /* ── Sidebar ── */
+        .sidebar-inner { padding: 20px; display: flex; flex-direction: column; min-height: 100%; }
+        .sidebar-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .sidebar-head span { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+        .sidebar-head button { background: none; border: none; font-size: 16px; cursor: pointer; color: var(--muted2); padding: 2px 4px; border-radius: 4px; }
+        .sidebar-head button:hover { color: var(--panel-fg); background: var(--hover-bg); }
+        .sidebar .cat-list { list-style: none; margin-bottom: 12px; }
+        .sidebar .cat-list li { margin-bottom: 2px; display: flex; align-items: center; }
+        .sidebar .cat-list a, .sidebar .cat-list .cat-name-span { flex: 1; display: block; padding: 6px 10px; border-radius: 4px; font-size: 0.9rem; color: var(--panel-fg); transition: background .1s; min-width: 0; }
+        .sidebar .cat-list a:hover { background: var(--hover-bg); }
+        .sidebar .cat-list a.active { background: var(--active-bg); color: var(--active-fg); }
+        .sidebar .cat-count { float: right; color: var(--muted); font-size: 0.75rem; margin-left: 6px; }
+        .sidebar .cat-list a.active .cat-count { color: var(--active-fg); opacity: .6; }
+        .sidebar .cat-edit { display: none; font-size: 11px; margin-left: 4px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 3px; background: transparent; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+        .sidebar .cat-del { display: none; font-size: 11px; margin-left: 2px; padding: 2px 5px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: #e55; cursor: pointer; flex-shrink: 0; }
+        .sidebar.editing .cat-edit, .sidebar.editing .cat-del { display: inline-block; }
+        .sidebar .cat-add-row { display: flex; gap: 4px; margin-top: auto; padding-top: 12px; position: sticky; bottom: 0; background: var(--body-bg); z-index: 2; }
+        .sidebar .cat-add-row input { flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: 3px; font-size: 12px; background: var(--input-bg); color: var(--panel-fg); }
+        .sidebar .cat-add-row input:focus { outline: none; border-color: #888; }
+        .sidebar .cat-add-row button { padding: 5px 10px; border: 1px solid var(--panel-fg); border-radius: 3px; background: transparent; color: var(--panel-fg); font-size: 12px; cursor: pointer; white-space: nowrap; }
+
+        .float-btn { position: fixed; bottom: 32px; right: calc(var(--sidebar-w) + 32px); width: 52px; height: 52px; border-radius: 50%; border: none; background: var(--float-bg); color: var(--float-fg); font-size: 28px; cursor: pointer; box-shadow: 0 4px 16px var(--card-shadow); z-index: 200; display: flex; align-items: center; justify-content: center; transition: transform .15s, background .3s, color .3s; }
+        .float-btn:hover { transform: scale(1.08); }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 300; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--panel-bg); border-radius: 8px; width: 600px; max-width: 90vw; max-height: 85vh; overflow-y: auto; padding: 28px; }
+        .modal h2 { font-size: 20px; margin-bottom: 20px; color: var(--panel-fg); }
+        .modal .input, .modal .textarea { margin-bottom: 14px; }
+
+        /* settings modal */
+        .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-label { font-size: 14px; }
+        .setting-hint { font-size: 12px; color: var(--muted); }
+        .btn-xs { padding: 2px 8px; font-size: 11px; border: 1px solid var(--border); border-radius: 3px; background: transparent; color: var(--panel-fg); cursor: pointer; }
+        .btn-xs.active { background: var(--panel-fg); color: var(--panel-bg); }
+
+        .upload-zone { border: 2px dashed var(--border); border-radius: 6px; padding: 20px; text-align: center; margin-bottom: 14px; cursor: pointer; }
+        .upload-zone:hover { border-color: #777; }
+        .upload-zone input { display: none; }
+
+        .input, .textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; font-family: inherit; background: var(--input-bg); color: var(--panel-fg); transition: background .3s, color .3s; }
+        .input:focus, .textarea:focus { outline: none; border-color: #888; }
+        .textarea { resize: vertical; }
+        .btn { display: inline-block; padding: 10px 24px; border: 1px solid var(--panel-fg); background: var(--panel-fg); color: var(--panel-bg); border-radius: 4px; font-size: 14px; cursor: pointer; text-decoration: none; transition: opacity .15s; }
+        .btn:hover { opacity: .85; }
+        .btn-outline { background: transparent; color: var(--panel-fg); }
+        .login-page { max-width: 380px; margin: 80px auto 0; padding: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-bg); }
+        .login-page h1 { font-size: 20px; margin-bottom: 20px; text-align: center; color: var(--panel-fg); }
+        .errorlist { color: #e55; font-size: 13px; margin-bottom: 12px; list-style: none; }
+
+        @media (max-width: 768px) {
+            .layout { flex-direction: column-reverse; }
+            .sidebar { width: 100%; }
+            .float-btn { right: 16px; bottom: 16px; }
+            .cards { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div class="main-panel">
+        <div class="topbar">
+            <a href="{% url 'blog:index' %}" class="brand">Gallery</a>
+            <div class="spacer"></div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索文章..." autocomplete="off">
+                <span class="search-icon">&#128269;</span>
+            </div>
+            {% block topbar_extra %}{% endblock %}
+            {% if user.is_authenticated %}
+            {% else %}
+                <a href="{% url 'blog:login' %}">登录</a>
+            {% endif %}
+        </div>
+
+        <div class="content-area" id="contentArea">
+            <div class="content-inner">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-inner">
+            <div class="sidebar-head">
+                <span>分类</span>
+                <div style="display:flex;gap:6px;">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'blog:logout' %}" style="font-size:12px;color:var(--muted);">退出</a>
+                    {% endif %}
+                    <button onclick="openSettings()" title="设置" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--muted2);">&#9881;</button>
+                </div>
+            </div>
+            <ul class="cat-list" id="catList">
+                <li><a href="{% url 'blog:index' %}" class="{% if not current_category %}active{% endif %}" id="cat-all">全部</a></li>
+                {% for cat in categories %}
+                <li id="cat-li-{{ cat.slug }}">
+                    <a href="?category={{ cat.slug }}" class="cat-link {% if current_category == cat.slug %}active{% endif %}" data-slug="{{ cat.slug }}">
+                        {{ cat.name }}
+                        <span class="cat-count" id="cat-count-{{ cat.slug }}">{{ cat.posts.count }}</span>
+                    </a>
+                    <button class="cat-edit" onclick="editCat('{{ cat.slug }}','{{ cat.name|escapejs }}')">改</button>
+                    <button class="cat-del" onclick="delCat('{{ cat.slug }}')">删</button>
+                </li>
+                {% endfor %}
+            </ul>
+
+            {% if user.is_authenticated %}
+            <div class="cat-add-row" id="catAddRow">
+                <input type="text" id="catInput" placeholder="新分类..." autocomplete="off">
+                <input type="hidden" id="catEditSlug">
+                <button id="catSubmitBtn" onclick="submitCat()">添加</button>
+                <button id="catCancelBtn" onclick="cancelEdit()" style="display:none;">取消</button>
+            </div>
+            {% endif %}
+        </div>
+    </aside>
+</div>
+
+<!-- float button -->
+{% if user.is_authenticated %}
+<button class="float-btn" id="floatBtn" title="写文章">+</button>
+{% endif %}
+
+<!-- create post modal -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <h2>写文章</h2>
+        <form id="postForm" enctype="multipart/form-data">
+            <input type="text" name="title" class="input" placeholder="标题" required>
+            <select name="category" class="input" required>
+                <option value="">选择分类</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+            <textarea name="content" class="textarea" rows="6" placeholder="正文内容..."></textarea>
+            <div class="upload-zone" id="uploadZone"><p class="upload-hint">点击上传图片（可多选）</p><input type="file" id="modalFileInput" accept="image/*" multiple></div>
+            <div class="modal-imgs" id="modalImgs"></div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:14px;" id="uploadStatus"></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal()">取消</button>
+                <button type="submit" class="btn" id="submitBtn">发布</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- settings modal -->
+<div class="modal-overlay" id="settingsOverlay">
+    <div class="modal" style="width:420px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h2 style="margin:0;">设置</h2>
+            <button onclick="closeSettings()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">&#215;</button>
+        </div>
+
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">日间 / 夜间模式</div>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="切换主题" style="position:relative;width:46px;height:24px;border:none;border-radius:12px;background:var(--border);cursor:pointer;transition:background .3s;"></button>
+        </div>
+
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">字体大小</div>
+                <div class="setting-hint">全局文字大小</div>
+            </div>
+            <div style="display:flex;gap:4px;">
+                <button class="btn-xs" data-font="small" onclick="setFont('small')">小</button>
+                <button class="btn-xs" data-font="medium" onclick="setFont('medium')">中</button>
+                <button class="btn-xs" data-font="large" onclick="setFont('large')">大</button>
+            </div>
+        </div>
+
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">背景壁纸</div>
+                <div class="setting-hint">内容区背景图片</div>
+            </div>
+            <label class="btn btn-outline" style="padding:4px 12px;font-size:12px;cursor:pointer;">
+                更换
+                <input type="file" id="settingsBgInput" accept="image/*" style="display:none;">
+            </label>
+        </div>
+    </div>
+</div>
+
+<script>
+// ═══════════ Theme + Font (runs for all) ═══════════
+(function() {
+    const html = document.documentElement;
+
+    function getTheme() {
+        return localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+    function applyTheme(t) {
+        html.setAttribute('data-theme', t);
+        localStorage.setItem('theme', t);
+        const dot = document.querySelector('.theme-toggle');
+        if (dot) {
+            dot.style.background = t === 'dark' ? '#555' : '';
+            dot.style.setProperty('--dot-x', t === 'dark' ? '22px' : '0px');
+        }
+    }
+    function getFont() { return localStorage.getItem('fontSize') || 'medium'; }
+    function applyFont(f) {
+        html.setAttribute('data-font', f);
+        localStorage.setItem('fontSize', f);
+        document.querySelectorAll('.btn-xs[data-font]').forEach(b => b.classList.toggle('active', b.dataset.font === f));
+    }
+
+    applyTheme(getTheme());
+    applyFont(getFont());
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (!localStorage.getItem('theme')) applyTheme(e.matches ? 'dark' : 'light');
+    });
+
+    // Theme toggle (in settings modal)
+    document.getElementById('themeToggle')?.addEventListener('click', function() {
+        applyTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+
+    // Font buttons
+    window.setFont = function(f) { applyFont(f); };
+
+    // Settings modal
+    window.openSettings = function() { document.getElementById('settingsOverlay').classList.add('show'); };
+    window.closeSettings = function() {
+        document.getElementById('settingsOverlay').classList.remove('show');
+    };
+    document.getElementById('settingsOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeSettings();
+    });
+
+    // Theme-toggle visual
+    function updateToggleVisual() {
+        const t = document.querySelector('.theme-toggle');
+        if (t) {
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            t.style.background = isDark ? '#555' : '';
+        }
+    }
+    updateToggleVisual();
+    new MutationObserver(updateToggleVisual).observe(html, {attributes: true, attributeFilter: ['data-theme']});
+})();
+</script>
+
+{% if user.is_authenticated %}
+<script>
+const csrf = '{{ csrf_token }}';
+const cardGrid = document.getElementById('cardGrid');
+const sidebar = document.getElementById('sidebar');
+
+// ═══════ Sidebar: edit mode toggle ═══════
+let catEditMode = false;
+sidebar.classList.add('editing'); // show edit/delete buttons for auth users
+
+// ═══════ Category CRUD via sidebar (AJAX) ═══════
+async function submitCat() {
+    const input = document.getElementById('catInput');
+    const slugEl = document.getElementById('catEditSlug');
+    const name = input.value.trim();
+    if (!name) return;
+
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('csrfmiddlewaretoken', csrf);
+
+    let url;
+    if (slugEl.value) {
+        url = '/category/' + slugEl.value + '/edit/';
+    } else {
+        url = '/category/create/';
+    }
+
+    try {
+        const r = await fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+        const data = await r.json();
+        if (data.success) { location.reload(); }
+        else { alert('操作失败: ' + (data.errors || '')); }
+    } catch(e) { alert('网络错误: ' + e.message); }
+}
+
+function editCat(slug, name) {
+    document.getElementById('catInput').value = name;
+    document.getElementById('catEditSlug').value = slug;
+    document.getElementById('catSubmitBtn').textContent = '更新';
+    document.getElementById('catCancelBtn').style.display = '';
+}
+
+function cancelEdit() {
+    document.getElementById('catInput').value = '';
+    document.getElementById('catEditSlug').value = '';
+    document.getElementById('catSubmitBtn').textContent = '添加';
+    document.getElementById('catCancelBtn').style.display = 'none';
+}
+
+async function delCat(slug) {
+    if (!confirm('确认删除该分类?')) return;
+    const fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrf);
+    try {
+        const r = await fetch('/category/' + slug + '/delete/', { method: 'POST', body: fd });
+        if (r.ok) { location.reload(); }
+        else { alert('删除失败'); }
+    } catch(e) { alert('网络错误'); }
+}
+
+// ═══════ Float + Modal ═══════
+document.getElementById('floatBtn')?.addEventListener('click', openModal);
+function openModal() { document.getElementById('modalOverlay').classList.add('show'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); document.getElementById('postForm').reset(); document.getElementById('modalImgs').innerHTML = ''; document.getElementById('uploadStatus').textContent = ''; }
+document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+let modalFiles = [];
+document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('modalFileInput').click());
+document.getElementById('modalFileInput').addEventListener('change', function() {
+    modalFiles = [...this.files];
+    document.getElementById('modalImgs').innerHTML = modalFiles.map(() => '<div class="thumb" style="background:var(--hover-bg);"></div>').join('');
+});
+
+document.getElementById('postForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = '创建中...';
+    const fd = new FormData();
+    fd.append('title', this.title.value);
+    fd.append('category', this.category.value);
+    fd.append('content', this.content.value);
+    fd.append('is_published', 'on');
+    try {
+        const r = await fetch('/post/create/ajax/', { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: fd });
+        const data = await r.json();
+        if (!data.success) { alert('创建失败'); btn.disabled = false; btn.textContent = '发布'; return; }
+        if (modalFiles.length > 0) {
+            document.getElementById('uploadStatus').textContent = '正在上传图片...';
+            for (const file of modalFiles) {
+                const imgFd = new FormData(); imgFd.append('image', file); imgFd.append('caption', '');
+                await fetch(`/post/${data.slug}/upload-image/`, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: imgFd });
+            }
+        }
+        closeModal();
+        refreshCards();
+    } catch (err) { alert('网络错误'); }
+    btn.disabled = false; btn.textContent = '发布';
+});
+
+// ═══════ Category filter (AJAX) ═══════
+document.querySelectorAll('.cat-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const slug = this.dataset.slug;
+        document.querySelectorAll('.cat-link').forEach(l => l.classList.remove('active'));
+        if (slug) { this.classList.add('active'); document.getElementById('cat-all')?.classList.remove('active'); }
+        loadCategory(slug);
+    });
+});
+document.getElementById('cat-all')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.querySelectorAll('.cat-link').forEach(l => l.classList.remove('active'));
+    this.classList.add('active');
+    loadCategory('');
+});
+
+async function loadCategory(slug) {
+    const url = slug ? `/category/${slug}/` : '/';
+    try {
+        const r = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await r.json();
+        if (cardGrid) cardGrid.innerHTML = data.html;
+    } catch (e) {}
+}
+function refreshCards() { loadCategory(document.querySelector('.cat-link.active')?.dataset.slug || ''); }
+
+// ═══════ Delete post from card ═══════
+window.deletePost = async function(event, postId, slug) {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!confirm('确认删除这篇文章？此操作不可撤销。')) return;
+    try {
+        const r = await fetch('/post/' + slug + '/delete/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await r.json();
+        if (data.success) {
+            const wrapper = document.querySelector('.card-wrapper .card[data-post-id="' + postId + '"]')?.closest('.card-wrapper');
+            if (wrapper) wrapper.remove();
+        } else {
+            alert('删除失败');
+        }
+    } catch(e) { alert('网络错误'); }
+};
+
+// ═══════ Search (AJAX) ═══════
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+    let searchTimer;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimer);
+        const q = this.value.trim();
+        searchTimer = setTimeout(() => {
+            if (!cardGrid) { window.location.href = '/?q=' + encodeURIComponent(q); return; }
+            fetch('/search/?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(data => { if (cardGrid) cardGrid.innerHTML = data.html; })
+                .catch(() => {});
+        }, 300);
+    });
+}
+
+// ═══════ Background ═══════
+document.getElementById('settingsBgInput')?.addEventListener('change', async function() {
+    const fd = new FormData(); fd.append('background_image', this.files[0]);
+    try {
+        const r = await fetch('/background/upload/', { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: fd });
+        const data = await r.json();
+        if (data.success) location.reload();
+    } catch (e) {}
+});
+
+// ═══════ Drag-and-drop reorder ═══════
+(function() {
+    const grid = document.getElementById('cardGrid');
+    if (!grid) return;
+    let dragSrc = null;
+
+    grid.addEventListener('dragstart', function(e) {
+        const card = e.target.closest('.card');
+        if (!card) return;
+        dragSrc = card;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+    });
+
+    grid.addEventListener('dragend', function(e) {
+        const card = e.target.closest('.card');
+        if (card) card.classList.remove('dragging');
+        dragSrc = null;
+    });
+
+    grid.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const card = e.target.closest('.card');
+        if (!card || card === dragSrc) return;
+        const cards = [...grid.querySelectorAll('.card')];
+        const srcIdx = cards.indexOf(dragSrc);
+        const dstIdx = cards.indexOf(card);
+        if (srcIdx < 0 || dstIdx < 0) return;
+        if (srcIdx < dstIdx) {
+            grid.insertBefore(dragSrc, card.nextSibling);
+        } else {
+            grid.insertBefore(dragSrc, card);
+        }
+    });
+
+    grid.addEventListener('drop', async function(e) {
+        e.preventDefault();
+        if (!dragSrc) return;
+        const cards = [...grid.querySelectorAll('.card')];
+        const order = cards.map((c, i) => ({ id: parseInt(c.dataset.postId), order: i }));
+        try {
+            await fetch('/post/reorder/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: order })
+            });
+        } catch (e) {}
+    });
+
+    // Prevent drag from interfering with click
+    grid.addEventListener('click', function(e) {
+        const card = e.target.closest('.card[draggable]');
+        // Allow normal click behavior
+    });
+})();
+</script>
+{% endif %}
+</body>
+</html>

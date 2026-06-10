@@ -1,0 +1,365 @@
+{% extends 'blog/base.html' %}
+{% block title %}{{ action }}文章{% endblock %}
+{% block content %}
+{% if post %}{# ─── EDIT MODE ─── #}
+<div class="form-page" style="max-width:800px;">
+
+    <form method="post" id="saveForm" enctype="multipart/form-data" style="margin-bottom:24px;" onsubmit="return beforeSubmit()">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% if form.errors %}<div style="background:#fee;color:#c00;padding:8px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">表单有错误，请修正</div>{% endif %}
+
+        <!-- Title -->
+        <div style="margin-bottom:10px;">{{ form.title }}{% if form.title.errors %}<div style="color:#c00;font-size:12px;">{{ form.title.errors.0 }}</div>{% endif %}</div>
+
+        <!-- Category + Cover layout -->
+        <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+            <div style="flex:1;min-width:140px;">{{ form.category }}{% if form.category.errors %}<div style="color:#c00;font-size:12px;">{{ form.category.errors.0 }}</div>{% endif %}</div>
+            <div style="flex:1;min-width:180px;">
+                <span style="font-size:12px;color:var(--muted);display:block;margin-bottom:2px;">封面布局</span>
+                {{ form.cover_layout }}
+            </div>
+        </div>
+
+        <!-- Cover image -->
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+            <label class="btn btn-outline" style="font-size:12px;padding:6px 14px;cursor:pointer;">更换封面 {{ form.cover_image }}</label>
+            {% with cover=post.images.all %}
+            {% for img in cover %}{% if img.is_cover %}
+            <div style="position:relative;border:1px solid var(--border);border-radius:4px;overflow:hidden;width:80px;height:50px;">
+                <img src="{{ img.image.url }}" style="width:100%;height:100%;object-fit:cover;">
+            </div>
+            {% endif %}{% endfor %}
+            {% endwith %}
+        </div>
+
+        <!-- Publish + actions -->
+        <div style="display:flex;align-items:center;gap:16px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;">
+                {{ form.is_published }} 发布
+            </label>
+            <div style="display:flex;gap:8px;">
+                <button type="submit" class="btn">保存文章</button>
+                <a href="{% url 'blog:detail' post.slug %}" class="btn btn-outline">预览</a>
+                <a href="{% url 'blog:index' %}" class="btn btn-outline">取消</a>
+            </div>
+        </div>
+    </form>
+
+    <!-- Image gallery -->
+    <h2 style="font-size:17px;margin-bottom:8px;">图片库</h2>
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+        <label style="cursor:pointer;padding:6px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--muted);">上传图片<input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" style="display:none;"></label>
+    </div>
+    <div id="imageGallery" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;">
+        {% for img in post.images.all %}
+        <div class="img-card" data-id="{{ img.id }}" data-url="{{ img.image.url }}"
+             style="border:{{ img.is_cover|yesno:'2px solid #e5a50a,1px solid var(--border)' }};border-radius:6px;overflow:hidden;width:140px;">
+            <img src="{{ img.image.url }}" style="width:100%;height:100px;object-fit:cover;display:block;">
+            <div style="padding:4px 6px;display:flex;gap:4px;justify-content:center;">
+                <button onclick="setCover({{ img.id }})" style="border:1px solid var(--border);background:transparent;color:{% if img.is_cover %}#e5a50a{% else %}var(--muted){% endif %};border-radius:3px;cursor:pointer;font-size:11px;">{% if img.is_cover %}★封面{% else %}封面{% endif %}</button>
+                <button onclick="deleteImage({{ img.id }})" style="border:1px solid #e55;background:transparent;color:#e55;border-radius:3px;cursor:pointer;font-size:11px;">删除</button>
+            </div>
+        </div>
+        {% empty %}
+        <div style="padding:20px;color:var(--muted2);border:1px dashed var(--border);border-radius:6px;text-align:center;width:100%;">暂无图片</div>
+        {% endfor %}
+    </div>
+
+    <!-- Block editor -->
+    <div class="editor-toolbar" style="position:sticky;top:0;z-index:10;background:var(--body-bg);padding:8px 0;margin-bottom:8px;">
+        <h2 style="font-size:17px;margin-bottom:8px;">内容编辑器 <span style="font-size:12px;color:var(--muted);font-weight:normal;">(段落编辑 + 图文混排)</span></h2>
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline" onclick="addTextBlock()" style="font-size:13px;">+ 文字段落</button>
+            <button class="btn btn-outline" onclick="addImageBlock()" style="font-size:13px;">+ 图文块</button>
+        </div>
+    </div>
+
+    <div id="blockList" style="display:flex;flex-direction:column;gap:10px;">
+        {% for blk in post.blocks.all %}
+        <div class="block-card" data-id="{{ blk.id }}" data-type="{{ blk.block_type }}" data-order="{{ blk.order }}" data-layout="{{ blk.layout }}" {% if blk.image %}data-image-id="{{ blk.image.id }}"{% endif %}
+             style="border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--panel-bg);">
+            <div class="block-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;cursor:grab;" draggable="true">
+                <span class="block-label" style="font-size:12px;color:var(--muted2);">{% if blk.block_type == 'text' %}文字段落{% else %}图文块{% endif %} · 第{{ blk.order|add:"1" }}项</span>
+                <div style="display:flex;gap:4px;">
+                    <button onclick="moveBlock({{ blk.id }}, -1)" title="上移" style="border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:3px;cursor:pointer;font-size:12px;">▲</button>
+                    <button onclick="moveBlock({{ blk.id }}, 1)" title="下移" style="border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:3px;cursor:pointer;font-size:12px;">▼</button>
+                    <button onclick="deleteBlock({{ blk.id }})" style="border:1px solid #e55;background:transparent;color:#e55;border-radius:3px;cursor:pointer;font-size:12px;">删除</button>
+                </div>
+            </div>
+            {% if blk.block_type == 'text' %}
+                <input type="text" class="block-subtitle" data-id="{{ blk.id }}" value="{{ blk.subtitle }}" placeholder="小标题（可选）" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-bottom:8px;background:var(--input-bg);color:var(--panel-fg);">
+                <textarea class="block-content" data-id="{{ blk.id }}" rows="5" placeholder="输入文字...">{{ blk.content }}</textarea>
+                <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                    <button onclick="saveThis({{ blk.id }})" class="btn" style="font-size:12px;padding:3px 12px;">保存</button>
+                </div>
+            {% else %}
+                {% if blk.image %}
+                <div class="block-preview-row" style="margin-bottom:6px;">
+                    <div class="block-preview-img"><img src="{{ blk.image.image.url }}" style="width:160px;height:100px;object-fit:cover;border-radius:4px;border:1px solid var(--border);display:block;"></div>
+                    <textarea class="block-content" data-id="{{ blk.id }}" rows="3" placeholder="图片说明..." style="flex:1;min-width:0;">{{ blk.content }}</textarea>
+                </div>
+                {% else %}
+                <div style="padding:12px;margin-bottom:6px;color:var(--muted2);border:1px dashed var(--border);border-radius:4px;text-align:center;">
+                    <div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;">
+                        <select onchange="linkBlockImage({{ blk.id }}, this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;">
+                            <option value="">-- 选择已有图片 --</option>
+                            {% for img in post.images.all %}<option value="{{ img.id }}">图片 #{{ forloop.counter }}</option>{% endfor %}
+                        </select>
+                        <span style="font-size:12px;color:var(--muted2);">或</span>
+                        <label class="btn btn-outline" style="font-size:12px;padding:4px 12px;cursor:pointer;">上传新图片
+                            <input type="file" onchange="uploadForBlock({{ blk.id }}, this)" accept="image/jpeg,image/png,image/webp" style="display:none;">
+                        </label>
+                    </div>
+                </div>
+                {% endif %}
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                    <span style="font-size:12px;color:var(--muted);">布局:</span>
+                    <select class="block-layout" data-id="{{ blk.id }}" onchange="this.closest('.block-card').setAttribute('data-layout', this.value)" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+                        <option value="full" {% if blk.layout == 'full' %}selected{% endif %}>仅展示</option>
+                        <option value="top-bottom" {% if blk.layout == 'top-bottom' %}selected{% endif %}>上图下文</option>
+                        <option value="bottom-top" {% if blk.layout == 'bottom-top' %}selected{% endif %}>上文下图</option>
+                        <option value="left-right" {% if blk.layout == 'left-right' %}selected{% endif %}>左图右文</option>
+                        <option value="right-left" {% if blk.layout == 'right-left' %}selected{% endif %}>左文右图</option>
+                        <option value="float-left" {% if blk.layout == 'float-left' %}selected{% endif %}>文字环绕</option>
+                    </select>
+                </div>
+                <div style="display:flex;justify-content:flex-end;">
+                    <button onclick="saveThis({{ blk.id }})" class="btn" style="font-size:12px;padding:3px 12px;">保存</button>
+                </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div id="emptyHint" style="text-align:center;padding:40px;color:var(--muted2);border:1px dashed var(--border);border-radius:6px;">暂无内容，点击上方按钮添加段落</div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+/* ─── Editor layout preview CSS ─── */
+.block-card[data-type="image"] .block-preview-row {
+    display: flex; gap: 12px; align-items: flex-start;
+}
+.block-card[data-type="image"][data-layout="right-left"] .block-preview-row {
+    flex-direction: row-reverse;
+}
+.block-card[data-type="image"][data-layout="top-bottom"] .block-preview-row {
+    flex-direction: column;
+}
+.block-card[data-type="image"][data-layout="top-bottom"] .block-preview-img img {
+    width: 100% !important; height: auto !important; max-height: 200px;
+}
+.block-card[data-type="image"][data-layout="bottom-top"] .block-preview-row {
+    flex-direction: column-reverse;
+}
+.block-card[data-type="image"][data-layout="bottom-top"] .block-preview-img img {
+    width: 100% !important; height: auto !important; max-height: 200px;
+}
+.block-card[data-type="image"][data-layout="float-left"] .block-preview-row {
+    display: block;
+}
+.block-card[data-type="image"][data-layout="float-left"] .block-preview-img {
+    float: left; width: 45%; margin: 0 12px 6px 0;
+}
+.block-card[data-type="image"][data-layout="float-left"] .block-preview-img img {
+    width: 100% !important; height: auto !important;
+}
+.block-card[data-type="image"][data-layout="full"] .block-preview-row {
+    flex-direction: column;
+}
+.block-card[data-type="image"][data-layout="full"] .block-preview-img img {
+    width: 100% !important; height: auto !important; max-height: 200px;
+}
+</style>
+<script>
+(() => {
+const slug = '{{ post.slug }}';
+const csrf = '{{ csrf_token }}';
+const bList = document.getElementById('blockList');
+const imgGal = document.getElementById('imageGallery');
+
+// ─── helpers ───
+function cardById(id){ return document.querySelector('.block-card[data-id="'+id+'"]'); }
+function saveBlock(id){ let c=cardById(id);if(!c)return;let ce=c.querySelector('.block-content'),le=c.querySelector('.block-layout'),se=c.querySelector('.block-subtitle');
+  let fd=new FormData();fd.append('content',ce?ce.value:'');fd.append('layout',le?le.value:'full');fd.append('block_type',c.dataset.type);
+  if(se){fd.append('subtitle',se.value);}
+  if(c.dataset.type==='image'&&c.dataset.imageId){fd.append('image',c.dataset.imageId);}
+  return fetch('/block/'+id+'/update/',{method:'POST',headers:{'X-CSRFToken':csrf},body:fd}).then(r=>r.json()); }
+function reorderAll(){ let ids=[];bList.querySelectorAll('.block-card').forEach((c,i)=>{c.dataset.order=i;let l=c.querySelector('.block-label');if(l)l.textContent=(c.dataset.type==='text'?'文字段落':'图文块')+' · 第'+(i+1)+'项';ids.push({id:parseInt(c.dataset.id),order:i});});
+  fetch('/block/'+slug+'/reorder/',{method:'POST',headers:{'X-CSRFToken':csrf,'Content-Type':'application/json'},body:JSON.stringify(ids)}); }
+
+// ─── save single block ───
+window.saveThis = async function(id){ let r=await saveBlock(id); if(!r.success) alert('保存失败'); };
+
+// ─── before form submit, save all blocks ───
+window.beforeSubmit = function(){
+    let cards = bList.querySelectorAll('.block-card');
+    if (cards.length === 0) return true;
+    Promise.all([...cards].map(c => saveBlock(c.dataset.id))).then(() => document.getElementById('saveForm').submit());
+    return false;
+};
+
+// ─── add text block ───
+window.addTextBlock = async function(){
+    let fd=new FormData();fd.append('block_type','text');fd.append('content','');fd.append('layout','full');
+    let r=await fetch('/block/'+slug+'/create/',{method:'POST',headers:{'X-CSRFToken':csrf},body:fd});
+    let d=await r.json(); if(!d.success){alert('创建失败');return;}
+    document.getElementById('emptyHint')?.remove();
+    let n=bList.querySelectorAll('.block-card').length;
+    let html='<div class="block-card" data-id="'+d.id+'" data-type="text" data-order="'+n+'">'
+        +'<div class="block-head"><span class="block-label">文字段落 · 第'+(n+1)+'项</span>'
+        +'<div><button onclick="moveBlock('+d.id+',-1)">▲</button><button onclick="moveBlock('+d.id+',1)">▼</button><button onclick="deleteBlock('+d.id+')">删除</button></div></div>'
+        +'<input type="text" class="block-subtitle" data-id="'+d.id+'" placeholder="小标题（可选）" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-bottom:8px;background:var(--input-bg);color:var(--panel-fg);">'
+        +'<textarea class="block-content" data-id="'+d.id+'" rows="5" placeholder="输入文字..."></textarea>'
+        +'<div><button onclick="saveThis('+d.id+')">保存</button></div></div>';
+    bList.insertAdjacentHTML('beforeend', html);
+};
+
+// ─── add image block ───
+window.addImageBlock = async function(){
+    let fd=new FormData();fd.append('block_type','image');fd.append('content','');fd.append('layout','full');
+    let r=await fetch('/block/'+slug+'/create/',{method:'POST',headers:{'X-CSRFToken':csrf},body:fd});
+    let d=await r.json(); if(!d.success){alert('创建失败');return;}
+    document.getElementById('emptyHint')?.remove();
+    let n=bList.querySelectorAll('.block-card').length;
+    let imgOpts='<option value="">-- 选择已有图片 --</option>';
+    imgGal.querySelectorAll('.img-card').forEach(ic=>{imgOpts+='<option value="'+ic.dataset.id+'">图片 #'+ic.dataset.id+'</option>';});
+    let html='<div class="block-card" data-id="'+d.id+'" data-type="image" data-order="'+n+'" data-layout="full">'
+        +'<div class="block-head"><span class="block-label">图文块 · 第'+(n+1)+'项</span>'
+        +'<div><button onclick="moveBlock('+d.id+',-1)">▲</button><button onclick="moveBlock('+d.id+',1)">▼</button><button onclick="deleteBlock('+d.id+')">删除</button></div></div>'
+        +'<div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:12px;border:1px dashed var(--border);border-radius:4px;">'
+        +'<select onchange="linkBlockImage('+d.id+',this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;">'+imgOpts+'</select>'
+        +'<span style="font-size:12px;color:var(--muted2);">或</span>'
+        +'<label class="btn btn-outline" style="font-size:12px;padding:4px 12px;cursor:pointer;">上传新图片<input type="file" onchange="uploadForBlock('+d.id+',this)" accept="image/jpeg,image/png,image/webp" style="display:none;"></label>'
+        +'</div>'
+        +'<div>布局: <select class="block-layout" data-id="'+d.id+'" onchange="this.closest(\'.block-card\').setAttribute(\'data-layout\', this.value)"><option value="full" selected>仅展示</option><option value="top-bottom">上图下文</option><option value="bottom-top">上文下图</option><option value="left-right">左图右文</option><option value="right-left">左文右图</option><option value="float-left">文字环绕</option></select></div>'
+        +'<div><button onclick="saveThis('+d.id+')">保存</button></div></div>';
+    bList.insertAdjacentHTML('beforeend', html);
+};
+
+// ─── upload for a specific block ───
+window.uploadForBlock = async function(blockId, input){
+    let file=input.files[0];if(!file)return;
+    let fd=new FormData();fd.append('image',file);fd.append('caption','');
+    let r=await fetch('/post/'+slug+'/upload-image/',{method:'POST',headers:{'X-CSRFToken':csrf},body:fd});
+    let d=await r.json();
+    if(d.success){
+        // Link uploaded image to this block
+        linkBlockImage(blockId, d.id);
+    } else { alert('上传失败'); }
+};
+
+// ─── delete block ───
+window.deleteBlock = async function(id){
+    if(!confirm('确认删除？'))return;
+    await fetch('/block/'+id+'/delete/',{method:'POST',headers:{'X-CSRFToken':csrf}});
+    cardById(id)?.remove(); reorderAll();
+    if(!bList.querySelectorAll('.block-card').length) bList.innerHTML='<div id="emptyHint">暂无内容，点击上方按钮添加段落</div>';
+};
+
+// ─── move block (via ▲/▼ buttons) ───
+window.moveBlock = async function(id, dir){
+    let cards=[...bList.querySelectorAll('.block-card')], idx=cards.findIndex(c=>c.dataset.id==id);
+    if(idx<0)return; let t=idx+dir; if(t<0||t>=cards.length)return;
+    dir<0?bList.insertBefore(cards[idx],cards[t]):bList.insertBefore(cards[idx],cards[t].nextSibling);
+    reorderAll();
+};
+
+// ─── drag to reorder blocks ───
+(function() {
+    let dragSrc = null;
+    bList.addEventListener('dragstart', function(e) {
+        const head = e.target.closest('.block-head');
+        if (!head) return;
+        dragSrc = head.closest('.block-card');
+        if (dragSrc) dragSrc.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+    });
+    bList.addEventListener('dragend', function(e) {
+        if (dragSrc) dragSrc.style.opacity = '';
+        dragSrc = null;
+    });
+    bList.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const card = e.target.closest('.block-card');
+        if (!card || card === dragSrc || !dragSrc) return;
+        const cards = [...bList.querySelectorAll('.block-card')];
+        const srcIdx = cards.indexOf(dragSrc);
+        const dstIdx = cards.indexOf(card);
+        if (srcIdx < 0 || dstIdx < 0) return;
+        if (srcIdx < dstIdx) {
+            bList.insertBefore(dragSrc, card.nextSibling);
+        } else {
+            bList.insertBefore(dragSrc, card);
+        }
+    });
+    bList.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (!dragSrc) return;
+        dragSrc.style.opacity = '';
+        dragSrc = null;
+        reorderAll();
+    });
+})();
+
+// ─── cover ───
+window.setCover = async function(imgId){
+    await fetch('/image/'+imgId+'/cover/',{method:'POST',headers:{'X-CSRFToken':csrf}});
+    imgGal.querySelectorAll('.img-card').forEach(c=>{let b=c.querySelector('button');if(c.dataset.id==imgId){c.style.border='2px solid #e5a50a';b.textContent='★封面';b.style.color='#e5a50a';}else{c.style.border='1px solid var(--border)';b.textContent='封面';b.style.color='var(--muted)';}});
+};
+
+// ─── delete image ───
+window.deleteImage = async function(imgId){
+    if(!confirm('确认删除该图片？'))return;
+    let r=await fetch('/image/'+imgId+'/delete/',{method:'POST',headers:{'X-CSRFToken':csrf}});
+    if((await r.json()).success) location.reload();
+};
+
+// ─── upload image ───
+document.getElementById('fileInput')?.addEventListener('change', async function(){
+    let file=this.files[0];if(!file)return;
+    let fd=new FormData();fd.append('image',file);fd.append('caption','');
+    await fetch('/post/'+slug+'/upload-image/',{method:'POST',headers:{'X-CSRFToken':csrf},body:fd});
+    location.reload();
+});
+
+// ─── link image to block ───
+window.linkBlockImage = async function(blockId, imageId){
+    if(!imageId)return;
+    let c=cardById(blockId);
+    let currentContent=c?c.querySelector('.block-content')?.value||'':'';
+    let currentLayout=c?c.querySelector('.block-layout')?.value||'full':'full';
+    let fd=new FormData();fd.append('image',imageId);fd.append('block_type','image');
+    fd.append('content',currentContent);fd.append('layout',currentLayout);
+    await fetch('/block/'+blockId+'/update/',{method:'POST',headers:{'X-CSRFToken':csrf},body:fd});
+    location.reload();
+};
+})();
+</script>
+
+{% else %}{# ─── CREATE MODE ─── #}
+<div class="form-page" style="max-width:600px;">
+    <h1>创建文章</h1>
+    <form method="post" enctype="multipart/form-data" style="margin-bottom:24px;">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% if form.errors %}<div style="background:#fee;color:#c00;padding:8px 12px;border-radius:4px;margin-bottom:12px;font-size:13px;">表单有错误，请修正</div>{% endif %}
+
+        <div style="margin-bottom:12px;">{{ form.title }}{% if form.title.errors %}<div style="color:#c00;font-size:12px;">{{ form.title.errors.0 }}</div>{% endif %}</div>
+
+        <div style="display:flex;gap:12px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+            <div style="flex:1;">{{ form.cover_layout }}</div>
+            <label class="btn btn-outline" style="font-size:13px;padding:6px 14px;cursor:pointer;">上传封面图 {{ form.cover_image }}</label>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+            <button type="submit" class="btn">创建文章</button>
+            <a href="{% url 'blog:index' %}" class="btn btn-outline">取消</a>
+        </div>
+    </form>
+    <p style="font-size:13px;color:var(--muted);">创建后进入编辑页，可添加分类、段落、图片等内容。</p>
+</div>
+{% endif %}
+{% endblock %}

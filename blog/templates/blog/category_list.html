@@ -1,0 +1,78 @@
+{% extends 'blog/base.html' %}
+{% block title %}分类管理{% endblock %}
+{% block content %}
+<div class="cat-manager" id="catManager">
+    <h1 style="font-size:20px;margin-bottom:18px;">分类管理</h1>
+
+    <!-- Add / Edit row -->
+    <form method="post" class="cat-form" id="catForm">
+        {% csrf_token %}
+        <input type="hidden" name="edit_slug" id="editSlug">
+        <input type="text" name="name" id="catNameInput" class="input" placeholder="输入分类名称" required autofocus>
+        <button type="submit" class="btn" id="catSubmitBtn">添加</button>
+        <button type="button" class="btn btn-outline" id="catCancelBtn" style="display:none;" onclick="resetForm()">取消</button>
+    </form>
+
+    <!-- Category list -->
+    <ul class="cat-rows" id="catRows">
+        {% for cat in categories %}
+        <li data-slug="{{ cat.slug }}">
+            <span class="cat-name">{{ cat.name }}</span>
+            <div class="cat-actions">
+                <button class="btn btn-outline btn-sm" onclick="editMode('{{ cat.slug }}', '{{ cat.name|escapejs }}')">编辑</button>
+                <form method="post" action="{% url 'blog:category_delete' cat.slug %}" class="del-form" onsubmit="return confirm('确认删除「{{ cat.name|escapejs }}」?');">
+                    {% csrf_token %}
+                    <button class="btn btn-sm" style="border-color:#e55;color:#e55;">删除</button>
+                </form>
+            </div>
+        </li>
+        {% empty %}
+        <li class="empty-row">暂无分类，请添加第一个分类</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<style>
+    .cat-manager { max-width: 560px; padding: 0; }
+    .cat-form {
+        display: flex; gap: 8px; margin-bottom: 16px;
+        align-items: center;
+    }
+    .cat-form .input { flex: 1; margin-bottom: 0 !important; }
+    .cat-form .btn { flex-shrink: 0; white-space: nowrap; }
+    .cat-rows { list-style: none; }
+    .cat-rows li {
+        display: flex; align-items: center;
+        padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .cat-rows li:last-child { border-bottom: none; }
+    .cat-rows .cat-name { flex: 1; font-size: 14px; }
+    .cat-rows .cat-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .cat-rows .del-form { display: inline; }
+    .empty-row { justify-content: center !important; color: var(--muted); font-size: 14px; }
+</style>
+
+<script>
+function editMode(slug, name) {
+    document.getElementById('editSlug').value = slug;
+    document.getElementById('catNameInput').value = name;
+    document.getElementById('catSubmitBtn').textContent = '更新';
+    document.getElementById('catCancelBtn').style.display = '';
+    // Change form action to edit endpoint
+    document.getElementById('catForm').action = '/category/' + slug + '/edit/';
+}
+
+function resetForm() {
+    document.getElementById('editSlug').value = '';
+    document.getElementById('catNameInput').value = '';
+    document.getElementById('catSubmitBtn').textContent = '添加';
+    document.getElementById('catCancelBtn').style.display = 'none';
+    document.getElementById('catForm').action = '/category/create/';
+}
+
+// Form submit: if in edit mode, submit to the correct action URL
+document.getElementById('catForm').addEventListener('submit', function(e) {
+    // Form action is already set by editMode/resetForm so standard submit works
+});
+</script>
+{% endblock %}
