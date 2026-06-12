@@ -146,11 +146,56 @@
         .login-page h1 { font-size: 20px; margin-bottom: 20px; text-align: center; color: var(--panel-fg); }
         .errorlist { color: #e55; font-size: 13px; margin-bottom: 12px; list-style: none; }
 
-        @media (max-width: 768px) {
+        /* ── Responsive: Tablet (<= 900px) ── */
+        @media (max-width: 900px) {
+            :root { --sidebar-w: 240px; }
+            .topbar .search-box input { width: 140px; }
+            .topbar .search-box input:focus { width: 160px; }
+            .content-inner { padding: 16px; }
+        }
+
+        /* ── Responsive: Mobile (< 768px) ── */
+        @media (max-width: 767px) {
             .layout { flex-direction: column-reverse; }
-            .sidebar { width: 100%; }
-            .float-btn { right: 16px; bottom: 16px; }
-            .cards { grid-template-columns: 1fr; }
+            .sidebar { width: 100%; height: auto; max-height: 45vh; position: relative; top: auto; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+            .sidebar-inner { min-height: auto; padding: 12px 16px 8px; }
+            .sidebar .cat-list { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0; }
+            .sidebar .cat-list li { margin-bottom: 0; }
+            .sidebar .cat-list a, .sidebar .cat-list .cat-name-span { font-size: 0.8rem; padding: 4px 10px; white-space: nowrap; }
+            .sidebar .cat-list a.active { background: var(--active-bg); color: var(--active-fg); }
+            .sidebar .cat-count { display: none; }
+            .sidebar .cat-edit, .sidebar .cat-del { display: none !important; }
+            .sidebar.editing .cat-edit, .sidebar.editing .cat-del { display: none !important; }
+            .sidebar .sidebar-head { margin-bottom: 6px; }
+            .sidebar .cat-add-row { position: relative; bottom: auto; margin-top: 8px; padding-top: 6px; }
+            .main-panel { flex: auto; }
+            .topbar { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+            .topbar .brand { font-size: 14px; }
+            .topbar .search-box input { width: 110px; font-size: 12px; padding: 5px 28px 5px 8px; }
+            .topbar .search-box input:focus { width: 130px; }
+            .topbar .search-box .search-icon { font-size: 11px; right: 6px; }
+            .topbar a { font-size: 12px; }
+            .cards { grid-template-columns: repeat(auto-fill, minmax(44vw, 1fr)); gap: 10px; }
+            .card .card-body { padding: 10px; }
+            .card .card-body h3 { font-size: 0.9rem; }
+            .card .card-excerpt { font-size: 0.8rem; }
+            .float-btn { right: 12px; bottom: 20px; width: 44px; height: 44px; font-size: 24px; }
+            .modal { max-width: 95vw; padding: 20px; }
+            .modal h2 { font-size: 17px; }
+            .content-inner { padding: 12px; }
+            .detail { padding: 20px 14px 40px; }
+            .detail h1 { font-size: 1.4rem; }
+        }
+
+        /* ── Responsive: Small phone (< 420px) ── */
+        @media (max-width: 420px) {
+            .cards { grid-template-columns: 1fr; gap: 12px; }
+            .topbar .search-box input { width: 80px; }
+            .topbar .search-box input:focus { width: 100px; }
+            .sidebar .cat-add-row input { font-size: 11px; }
+            .sidebar .cat-add-row button { font-size: 11px; padding: 4px 8px; }
+            .detail h1 { font-size: 1.3rem; }
+            .float-btn { width: 40px; height: 40px; font-size: 22px; right: 8px; bottom: 16px; }
         }
     </style>
 </head>

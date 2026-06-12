@@ -170,6 +170,31 @@
 .block-card[data-type="image"][data-layout="full"] .block-preview-img img {
     width: 100% !important; height: auto !important; max-height: 200px;
 }
+
+/* ── Responsive: Editor on mobile ── */
+@media (max-width: 767px) {
+    .form-page { max-width: 100% !important; padding: 0 4px; }
+    .block-card { padding: 8px !important; }
+    .block-head { flex-wrap: wrap; gap: 4px; }
+    .block-label { font-size: 11px !important; }
+    .block-head button { font-size: 10px !important; padding: 1px 4px !important; }
+    .block-preview-row { flex-direction: column !important; }
+    .block-preview-img img { width: 100% !important; height: auto !important; max-height: 150px; }
+    .editor-toolbar { padding: 4px 0 !important; }
+    .editor-toolbar h2 { font-size: 14px !important; margin-bottom: 4px !important; }
+    .editor-toolbar button { font-size: 11px !important; padding: 5px 10px !important; }
+    .img-card { width: 100px !important; }
+    .img-card img { height: 70px !important; }
+    .img-card button { font-size: 10px !important; }
+    #imageGallery { gap: 6px !important; margin-bottom: 16px !important; }
+}
+@media (max-width: 420px) {
+    .block-subtitle { font-size: 11px !important; }
+    .block-content { font-size: 12px !important; }
+    .img-card { width: 80px !important; }
+    .img-card img { height: 55px !important; }
+    .img-card button { font-size: 9px !important; padding: 1px 3px !important; }
+}
 </style>
 <script>
 (() => {
