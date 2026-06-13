@@ -71,7 +71,9 @@
         .card { background: var(--panel-bg); border-radius: 6px; overflow: hidden; display: block; transition: box-shadow .15s; }
         .card:hover { box-shadow: 0 2px 12px var(--card-shadow); }
         .card-wrapper:hover .card-delete-btn { display: flex !important; }
+        .card-wrapper:hover .card-pin-btn { display: flex !important; }
         .card-delete-btn:hover { background: #e55 !important; }
+        .card-pin-btn:hover { background: #e5a50a !important; }
         .card.dragging { opacity: 0.5; }
         .card .card-img { aspect-ratio: 16/10; overflow: hidden; background: var(--hover-bg); }
         .card .card-img img { width: 100%; height: 100%; object-fit: cover; }
@@ -565,6 +567,23 @@ document.getElementById('settingsBgInput')?.addEventListener('change', async fun
     } catch (e) {}
 });
 
+// ═══════ Toggle pin ═══════
+window.togglePin = async function(event, slug, postId) {
+    event.stopPropagation();
+    event.preventDefault();
+    try {
+        const r = await fetch('/post/' + slug + '/pin/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrf }
+        });
+        const data = await r.json();
+        if (data.success) {
+            // Reload to reflect new sort order
+            refreshCards();
+        }
+    } catch(e) { alert('网络错误'); }
+};
+
 // ═══════ Drag-and-drop reorder ═══════
 (function() {
     const grid = document.getElementById('cardGrid');
@@ -574,6 +593,11 @@ document.getElementById('settingsBgInput')?.addEventListener('change', async fun
     grid.addEventListener('dragstart', function(e) {
         const card = e.target.closest('.card');
         if (!card) return;
+        // Skip pinned cards
+        if (card.closest('.card-wrapper.pinned')) {
+            e.preventDefault();
+            return;
+        }
         dragSrc = card;
         card.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -591,22 +615,25 @@ document.getElementById('settingsBgInput')?.addEventListener('change', async fun
         e.dataTransfer.dropEffect = 'move';
         const card = e.target.closest('.card');
         if (!card || card === dragSrc) return;
-        const cards = [...grid.querySelectorAll('.card')];
+        // Don't allow dropping before pinned cards
+        if (card.closest('.card-wrapper.pinned')) return;
+        const cards = [...grid.querySelectorAll('.card:not(.card-wrapper.pinned .card)')];
         const srcIdx = cards.indexOf(dragSrc);
         const dstIdx = cards.indexOf(card);
         if (srcIdx < 0 || dstIdx < 0) return;
         if (srcIdx < dstIdx) {
-            grid.insertBefore(dragSrc, card.nextSibling);
+            grid.insertBefore(dragSrc.parentElement, card.parentElement.nextSibling);
         } else {
-            grid.insertBefore(dragSrc, card);
+            grid.insertBefore(dragSrc.parentElement, card.parentElement);
         }
     });
 
     grid.addEventListener('drop', async function(e) {
         e.preventDefault();
         if (!dragSrc) return;
-        const cards = [...grid.querySelectorAll('.card')];
-        const order = cards.map((c, i) => ({ id: parseInt(c.dataset.postId), order: i }));
+        // Only count non-pinned cards for reorder
+        const nonPinnedCards = [...grid.querySelectorAll('.card:not(.card-wrapper.pinned .card)')];
+        const order = nonPinnedCards.map((c, i) => ({ id: parseInt(c.dataset.postId), order: i }));
         try {
             await fetch('/post/reorder/', {
                 method: 'POST',

@@ -190,6 +190,17 @@ def post_reorder(request):
     return JsonResponse({'success': True})
 
 
+# ── 置顶/取消置顶 ──
+
+@login_required
+@require_POST
+def post_toggle_pin(request, slug):
+    post = get_object_or_404(Post, slug=slug)
+    post.pinned = not post.pinned
+    post.save(update_fields=['pinned'])
+    return JsonResponse({'success': True, 'pinned': post.pinned})
+
+
 # ── AJAX 创建文章 ──
 
 @login_required

@@ -34,11 +34,12 @@ class Post(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     is_published = models.BooleanField(default=True, verbose_name='已发布')
     order = models.IntegerField(default=0, verbose_name='排序')
+    pinned = models.BooleanField(default=False, verbose_name='置顶')
 
     class Meta:
         verbose_name = '文章'
         verbose_name_plural = '文章'
-        ordering = ['order', '-created_at']
+        ordering = ['-pinned', 'order', '-created_at']
 
     def __str__(self):
         return self.title

@@ -1,19 +1,20 @@
 {% for post in posts %}
-<div class="card-wrapper" style="position:relative;">
-    <a href="{{ post.get_absolute_url }}" class="card" data-post-id="{{ post.id }}" draggable="true">
+<div class="card-wrapper{% if post.pinned %} pinned{% endif %}" style="position:relative;">
+    <a href="{{ post.get_absolute_url }}" class="card" data-post-id="{{ post.id }}" data-slug="{{ post.slug }}" draggable="{% if not post.pinned %}true{% endif %}" style="{% if post.pinned %}border:2px solid #e5a50a;{% endif %}">
         <div class="card-img">
             {% if post.first_image %}
             <img src="{{ post.first_image.url }}" alt="{{ post.title }}" loading="lazy">
             {% endif %}
         </div>
         <div class="card-body">
-            <h3>{{ post.title }}</h3>
+            <h3>{% if post.pinned %}<span style="color:#e5a50a;margin-right:4px;" title="已置顶">📌</span>{% endif %}{{ post.title }}</h3>
             <p class="card-excerpt">{{ post.content|truncatewords:30 }}</p>
             <span class="card-cat">{{ post.category.name }} · {{ post.created_at|date:'m-d' }}</span>
         </div>
     </a>
     {% if user.is_authenticated %}
     <button class="card-delete-btn" onclick="deletePost(event, {{ post.id }}, '{{ post.slug }}')" title="删除" style="position:absolute;top:6px;right:6px;z-index:5;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;">×</button>
+    <button class="card-pin-btn" onclick="togglePin(event, '{{ post.slug }}', {{ post.id }})" title="{% if post.pinned %}取消置顶{% else %}置顶{% endif %}" style="position:absolute;top:6px;right:32px;z-index:5;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.5);color:{% if post.pinned %}#e5a50a{% else %}#fff{% endif %};font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;">📌</button>
     {% endif %}
 </div>
 {% empty %}

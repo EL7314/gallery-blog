@@ -23,6 +23,7 @@ urlpatterns = [
     path('post/create/', views.post_create, name='post_create'),
     path('post/create/ajax/', views.ajax_create_post, name='ajax_create_post'),
     path('post/reorder/', views.post_reorder, name='post_reorder'),
+    path('post/<slug:slug>/pin/', views.post_toggle_pin, name='post_toggle_pin'),
     path('post/<slug:slug>/edit/', views.post_edit, name='post_edit'),
     path('post/<slug:slug>/delete/', views.post_delete, name='post_delete'),
     path('post/<slug:slug>/upload-image/', views.ajax_upload_image, name='ajax_upload'),
