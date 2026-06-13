@@ -1,6 +1,6 @@
 {% for post in posts %}
 <div class="card-wrapper{% if post.pinned %} pinned{% endif %}" style="position:relative;">
-    <a href="{{ post.get_absolute_url }}" class="card" data-post-id="{{ post.id }}" data-slug="{{ post.slug }}" draggable="{% if not post.pinned %}true{% endif %}" style="{% if post.pinned %}border:2px solid #e5a50a;{% endif %}">
+    <a href="{{ post.get_absolute_url }}" class="card" data-post-id="{{ post.id }}" data-slug="{{ post.slug }}" draggable="{% if not post.pinned %}true{% endif %}" style="{% if post.pinned %}border:2px solid var(--panel-bg);{% endif %}">
         <div class="card-img">
             {% if post.first_image %}
             <img src="{{ post.first_image.url }}" alt="{{ post.title }}" loading="lazy">
